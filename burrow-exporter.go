@@ -99,6 +99,10 @@ func main() {
 
 		signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
 
+		// 使用context来关联goroutine
+		// 一般创建context根节点使用context.Background(), 函数返回空的Context
+		// 有了根节点，通过WithTimeout, WithCancel, WithDeadline, WithValue 这四个函数来创建子节点、孙节点...
+		// ref: https://zhuyasen.com/post/golang_context.html
 		ctx, cancel := context.WithCancel(context.Background())
 
 		exporter := burrow_exporter.MakeBurrowExporter(
@@ -115,7 +119,11 @@ func main() {
 			c.Bool("skip-topic-partition-offset"))
 		go exporter.Start(ctx)
 
+		fmt.Println(">>>> starting ......")
 		<-done
+		fmt.Println("!!! finished !!!!")
+		// 手动取消， 当Context 被 canceled 或是 times out 的时候，Done 返回一个被 closed 的channel
+		// 关闭对应的c.done，也就是让它的后代goroutine退出，这里会终止爬取服务
 		cancel()
 
 		exporter.Close()

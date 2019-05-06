@@ -91,6 +91,7 @@ func (be *BurrowExporter) processGroup(cluster, group string) {
 	}
 }
 
+// 处理每个topic的数据
 func (be *BurrowExporter) processTopic(cluster, topic string) {
 	details, err := be.client.ClusterTopicDetails(cluster, topic)
 	if err != nil {
@@ -112,6 +113,7 @@ func (be *BurrowExporter) processTopic(cluster, topic string) {
 	}
 }
 
+// 抓取每个kafka集群的数据
 func (be *BurrowExporter) processCluster(cluster string) {
 	groups, err := be.client.ListConsumers(cluster)
 	if err != nil {
@@ -154,6 +156,7 @@ func (be *BurrowExporter) processCluster(cluster string) {
 	wg.Wait()
 }
 
+// 对外暴露服务，供prometheus来 pull metrics
 func (be *BurrowExporter) startPrometheus() {
 	http.Handle("/metrics", promhttp.Handler())
 	go http.ListenAndServe(be.metricsListenAddr, nil)
@@ -164,6 +167,7 @@ func (be *BurrowExporter) Close() {
 }
 
 func (be *BurrowExporter) Start(ctx context.Context) {
+	// 启动http服务, 对外暴露metrics
 	be.startPrometheus()
 
 	be.wg.Add(1)
@@ -172,6 +176,7 @@ func (be *BurrowExporter) Start(ctx context.Context) {
 	be.mainLoop(ctx)
 }
 
+// 抓取burrow
 func (be *BurrowExporter) scrape() {
 	start := time.Now()
 	log.WithField("timestamp", start.UnixNano()).Info("Scraping burrow...")
@@ -203,10 +208,13 @@ func (be *BurrowExporter) scrape() {
 	}).Info("Finished scraping burrow.")
 }
 
+// 主循环
+// 起一个定时任务抓取burrow数据
 func (be *BurrowExporter) mainLoop(ctx context.Context) {
 	timer := time.NewTicker(time.Duration(be.interval) * time.Second)
 
 	// scrape at app start without waiting for the first interval to elapse
+	// 先行抓取
 	be.scrape()
 
 	for {

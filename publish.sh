@@ -1,4 +1,6 @@
 #!/bin/bash
+# gox & ghr 屌屌的
+# burrow-exporter 写的真好 ...
 
 VERSION=$(git describe --tags)
 echo "Publishing $VERSION..."
