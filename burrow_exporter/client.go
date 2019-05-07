@@ -110,6 +110,10 @@ func (bc *BurrowClient) buildUrl(endpoint string) (string, error) {
 }
 
 func (bc *BurrowClient) getJsonReq(endpoint string, dest interface{}) error {
+	log.WithFields(log.Fields{
+		"endpoint": endpoint,
+	}).Info("请求API")
+
 	resp, err := bc.client.Get(endpoint)
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -149,6 +153,20 @@ func (bc *BurrowClient) HealthCheck() (bool, error) {
 	return true, nil
 }
 
+// 请求burrow kafka 集群
+// curl $host/$version/kafka, 如 localhost:8000/v3/kafka
+// 正常返回
+//{
+//	error: false,
+//	message: "cluster list returned",
+//	clusters: [
+//	"local"
+//	],
+//	request: {
+//		url: "/v3/kafka",
+//		host: "Ponn"
+//	}
+//}
 func (bc *BurrowClient) ListClusters() (*ClustersResp, error) {
 	endpoint, err := bc.buildUrl("/kafka")
 	if err != nil {
@@ -201,6 +219,24 @@ func (bc *BurrowClient) ClusterDetails(cluster string) (*ClusterDetailsResp, err
 	return clusterDetails, nil
 }
 
+// 抓取每个kafka集群下消费者
+// 如kafka集群在burrow里设置的是local, 则 API：http://localhost:8000/v3/kafka/local/consumer
+// response:
+/**
+{
+    "error":false,
+    "message":"consumer list returned",
+    "consumers":[
+        "v-consumer",
+        "single-consumer-group",
+        "v-consumer-v2"
+    ],
+    "request":{
+        "url":"/v3/kafka/local/consumer",
+        "host":"Ponn"
+    }
+}
+ */
 func (bc *BurrowClient) ListConsumers(cluster string) (*ConsumerGroupsResp, error) {
 	endpoint, err := bc.buildUrl(fmt.Sprintf("/kafka/%s/consumer", cluster))
 	if err != nil {
@@ -257,6 +293,27 @@ func (bc *BurrowClient) ListConsumerTopics(cluster, consumerGroup string) (*Topi
 	return consumerTopics, nil
 }
 
+// 获取集群topic
+// eg: http://localhost:8000/v3/kafka/local/topic
+// response:
+/*
+{
+  "error": false,
+  "message": "topic list returned",
+  "topics": [
+    "_schemas",
+    "raw_teacher_test-app",
+    "demo",
+    "agora_data",
+    "__consumer_offsets"
+  ],
+  "request": {
+    "url": "/v3/kafka/local/topic",
+    "host": "Ponn"
+  }
+}
+
+ */
 func (bc *BurrowClient) ListClusterTopics(cluster string) (*TopicsResp, error) {
 	endpoint, err := bc.buildUrl(fmt.Sprintf("/kafka/%s/topic", cluster))
 	if err != nil {
@@ -344,6 +401,68 @@ func (bc *BurrowClient) ConsumerGroupStatus(cluster, consumerGroup string) (*Con
 	return status, nil
 }
 
+// 获取消费者组堆积信息
+// eg: http://localhost:8000/v3/kafka/local/consumer/v-consumer/lag
+// response:
+/*
+
+{
+  "error": false,
+  "message": "consumer status returned",
+  "status": {
+    "cluster": "local",
+    "group": "v-consumer",
+    "status": "OK",
+    "complete": 1,
+    "partitions": [
+      {
+        "topic": "agora_data",
+        "partition": 0,
+        "owner": "",
+        "client_id": "",
+        "status": "OK",
+        "start": {
+          "offset": 8941,
+          "timestamp": 1557213698168,
+          "lag": 0
+        },
+        "end": {
+          "offset": 8941,
+          "timestamp": 1557213764596,
+          "lag": 0
+        },
+        "current_lag": 0,
+        "complete": 1
+      }
+    ],
+    "partition_count": 1,
+    "maxlag": {
+      "topic": "agora_data",
+      "partition": 0,
+      "owner": "",
+      "client_id": "",
+      "status": "OK",
+      "start": {
+        "offset": 8941,
+        "timestamp": 1557213698168,
+        "lag": 0
+      },
+      "end": {
+        "offset": 8941,
+        "timestamp": 1557213764596,
+        "lag": 0
+      },
+      "current_lag": 0,
+      "complete": 1
+    },
+    "totallag": 0
+  },
+  "request": {
+    "url": "/v3/kafka/local/consumer/v-consumer/lag",
+    "host": "Ponn"
+  }
+}
+ */
 func (bc *BurrowClient) ConsumerGroupLag(cluster, consumerGroup string) (*ConsumerGroupStatusResp, error) {
 	endpoint, err := bc.buildUrl(fmt.Sprintf("/kafka/%s/consumer/%s/lag", cluster, consumerGroup))
 	if err != nil {

@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// BurrowExporter 结构体
 type BurrowExporter struct {
 	client                     *BurrowClient
 	metricsListenAddr          string
@@ -29,6 +30,7 @@ type BurrowExporter struct {
 	skipTopicPartitionOffset   bool
 }
 
+// 处理group信息
 func (be *BurrowExporter) processGroup(cluster, group string) {
 	status, err := be.client.ConsumerGroupLag(cluster, group)
 	if err != nil {
@@ -38,8 +40,11 @@ func (be *BurrowExporter) processGroup(cluster, group string) {
 		return
 	}
 
+	// 设置prometheus指标，value类型都是 float64
 	for _, partition := range status.Status.Partitions {
 		if !be.skipPartitionLag {
+			// 设置promethues分区消费堆积指标
+			// eg: kafka_burrow_partition_lag{cluster="local",group="v-consumer",partition="0",topic="agora_data"} 0
 			KafkaConsumerPartitionLag.With(prometheus.Labels{
 				"cluster":   status.Status.Cluster,
 				"group":     status.Status.Group,
@@ -49,6 +54,8 @@ func (be *BurrowExporter) processGroup(cluster, group string) {
 		}
 
 		if !be.skipPartitionCurrentOffset {
+			// 设置当前消费分区的偏移量指标
+			// eg: kafka_burrow_partition_current_offset{cluster="local",group="v-consumer",partition="0",topic="agora_data"} 8941
 			KafkaConsumerPartitionCurrentOffset.With(prometheus.Labels{
 				"cluster":   status.Status.Cluster,
 				"group":     status.Status.Group,
@@ -58,6 +65,9 @@ func (be *BurrowExporter) processGroup(cluster, group string) {
 		}
 
 		if !be.skipPartitionStatus {
+			// 设置分区消费状态指标
+			// eg: kafka_burrow_partition_status{cluster="local",group="v-consumer",partition="0",topic="agora_data"} 2
+			// 可以看到 value是2， status:"OK" 在metrics.go map里表示 2
 			KafkaConsumerPartitionCurrentStatus.With(prometheus.Labels{
 				"cluster":   status.Status.Cluster,
 				"group":     status.Status.Group,
@@ -67,6 +77,9 @@ func (be *BurrowExporter) processGroup(cluster, group string) {
 		}
 
 		if !be.skipPartitionMaxOffset {
+			// 设置分区消费最大偏移量指标
+			// eg: kafka_burrow_partition_max_offset{cluster="local",group="v-consumer",partition="0",topic="agora_data"} 0
+			// 每个分区的max_offset指标，默认0（其实是零值是0）
 			KafkaConsumerPartitionMaxOffset.With(prometheus.Labels{
 				"cluster":   status.Status.Cluster,
 				"group":     status.Status.Group,
@@ -76,6 +89,8 @@ func (be *BurrowExporter) processGroup(cluster, group string) {
 		}
 	}
 
+	// 设置当前消费者组最大堆积指标
+	// eg: kafka_burrow_total_lag{cluster="local",group="v-consumer"} 0
 	if !be.skipTotalLag {
 		KafkaConsumerTotalLag.With(prometheus.Labels{
 			"cluster": status.Status.Cluster,
@@ -115,6 +130,7 @@ func (be *BurrowExporter) processTopic(cluster, topic string) {
 
 // 抓取每个kafka集群的数据
 func (be *BurrowExporter) processCluster(cluster string) {
+	// 获取groups
 	groups, err := be.client.ListConsumers(cluster)
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -124,6 +140,7 @@ func (be *BurrowExporter) processCluster(cluster string) {
 		return
 	}
 
+	// 获取topics
 	topics, err := be.client.ListClusterTopics(cluster)
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -135,6 +152,7 @@ func (be *BurrowExporter) processCluster(cluster string) {
 
 	wg := sync.WaitGroup{}
 
+	// 获取集群中每个group信息
 	for _, group := range groups.ConsumerGroups {
 		wg.Add(1)
 
@@ -190,6 +208,7 @@ func (be *BurrowExporter) scrape() {
 
 	wg := sync.WaitGroup{}
 
+	// 循环kafka集群，每个启动一个goroutine 抓取集群信息
 	for _, cluster := range clusters.Clusters {
 		wg.Add(1)
 
